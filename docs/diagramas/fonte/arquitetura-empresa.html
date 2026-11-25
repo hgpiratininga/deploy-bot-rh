@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Arquitetura na empresa</title>
+<link rel="stylesheet" href="estilo.css">
+<style>
+  .firewall {
+    position: absolute;
+    left: 400px; top: 235px; width: 40px; height: 749px;
+    background: #000000; color: #FFFFFF;
+    display: flex; align-items: center; justify-content: center;
+    writing-mode: vertical-rl; transform: rotate(180deg);
+    font-size: 24px; font-weight: 700; font-stretch: 90%;
+    white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+
+<h1>Na empresa, tudo roda em <span>um servidor</span></h1>
+
+<!-- Zonas -->
+<div class="zona" style="left:120px; top:235px; width:270px; height:749px;"><div class="rot">Internet</div></div>
+<div class="zona" style="left:455px; top:235px; width:815px; height:749px;"><div class="rot">Rede da empresa</div></div>
+<div class="zona" style="left:475px; top:420px; width:775px; height:440px;"><div class="rot">Servidor Linux da empresa, com Docker</div></div>
+
+<!-- Setas -->
+<svg class="setas" width="1920" height="1080" viewBox="0 0 1920 1080">
+  <defs>
+    <marker id="ponta" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#000"/>
+    </marker>
+  </defs>
+  <g stroke="#000" stroke-width="3" fill="none">
+    <!-- 1 e 6: candidato e Meta -->
+    <line x1="215" y1="400" x2="215" y2="518" marker-end="url(#ponta)"/>
+    <line x1="295" y1="520" x2="295" y2="402" marker-end="url(#ponta)"/>
+    <!-- 2: Meta -> Nginx -> Chatwoot (entrada pela porta 443) -->
+    <line x1="365" y1="640" x2="493" y2="640" marker-end="url(#ponta)"/>
+    <line x1="680" y1="640" x2="738" y2="640" marker-end="url(#ponta)"/>
+    <!-- 5: Chatwoot -> Meta (saída HTTPS) -->
+    <polyline points="790,520 790,490 330,490 330,518" marker-end="url(#ponta)"/>
+    <!-- 3 e 4: Chatwoot e n8n -->
+    <line x1="960" y1="560" x2="1023" y2="560" marker-end="url(#ponta)"/>
+    <line x1="1025" y1="640" x2="962" y2="640" marker-end="url(#ponta)"/>
+    <!-- Equipe de TI -> n8n (pela VPN) -->
+    <line x1="1127" y1="400" x2="1127" y2="518" marker-end="url(#ponta)"/>
+    <!-- RH no celular -> Nginx (internet, porta 443) -->
+    <polyline points="365,900 560,900 560,682" marker-end="url(#ponta)"/>
+    <!-- RH no computador -> Nginx (rede interna) -->
+    <polyline points="740,927 620,927 620,682" marker-end="url(#ponta)"/>
+    <!-- dados -->
+    <line x1="850" y1="680" x2="850" y2="740"/>
+  </g>
+  <g stroke="#007c2f" stroke-width="3" fill="none" stroke-dasharray="8 6">
+    <line x1="960" y1="787" x2="1025" y2="787"/>
+    <line x1="1127" y1="680" x2="1127" y2="740"/>
+  </g>
+</svg>
+
+<div class="firewall">Firewall: só a porta 443 entra</div>
+
+<!-- Componentes -->
+<div class="caixa preto" style="left:145px; top:300px; width:220px; height:100px;"><b>Candidato</b><span>WhatsApp</span></div>
+<div class="caixa preto" style="left:145px; top:520px; width:220px; height:160px;"><b>Meta</b><span>WhatsApp</span><span>Cloud API</span></div>
+<div class="caixa pessoa" style="left:145px; top:850px; width:220px; height:100px;"><b>Equipe de RH</b><span>app no celular</span></div>
+
+<div class="caixa pessoa" style="left:1005px; top:300px; width:245px; height:100px;"><b>Equipe de TI</b><span>acesso pela VPN</span></div>
+
+<div class="caixa verde" style="left:495px; top:520px; width:185px; height:160px;"><b>Nginx</b><span>HTTPS 443</span><span>certificado</span></div>
+<div class="caixa verde" style="left:740px; top:520px; width:220px; height:160px;"><b>Chatwoot</b><span>atendimento</span></div>
+<div class="caixa verde" style="left:1025px; top:520px; width:205px; height:160px;"><b>n8n</b><span>robô do menu</span><span>só rede interna</span></div>
+
+<div class="caixa vazado" style="left:740px; top:740px; width:220px; height:95px;"><b>PostgreSQL</b><span>e Redis (filas)</span></div>
+<div class="caixa vazado" style="left:1025px; top:740px; width:205px; height:95px;"><b>Backup</b><span>diário e testado</span></div>
+
+<div class="caixa pessoa" style="left:740px; top:885px; width:220px; height:85px;"><b>Equipe de RH</b><span>navegador</span></div>
+
+<!-- Números do fluxo -->
+<div class="num" style="left:196px; top:441px;">1</div>
+<div class="num" style="left:690px; top:621px;">2</div>
+<div class="num" style="left:973px; top:541px;">3</div>
+<div class="num" style="left:973px; top:621px;">4</div>
+<div class="num" style="left:581px; top:471px;">5</div>
+<div class="num" style="left:276px; top:441px;">6</div>
+
+<!-- Coluna de leitura -->
+<div class="coluna">
+  <div class="bloco">
+    <h2>O que muda em relação ao protótipo</h2>
+    <div class="item"><b>Servidor Linux ligado 24 horas</b><small>no lugar do notebook</small></div>
+    <div class="item"><b>Domínio próprio com certificado</b><small>no lugar do túnel ngrok</small></div>
+    <div class="item"><b>Número real da empresa</b><small>sem o limite de 5 respostas por dia</small></div>
+    <div class="item"><b>Senhas guardadas pelo TI</b><small>no lugar de um arquivo local</small></div>
+    <div class="item"><b>Backup diário e testado</b><small>hoje não existe</small></div>
+    <div class="item"><b>RH no navegador e no celular</b><small>hoje só no notebook</small></div>
+  </div>
+  <div class="item"><small>O caminho de uma mensagem (1 a 6) é o mesmo do protótipo.</small></div>
+</div>
+
+</body>
+</html>

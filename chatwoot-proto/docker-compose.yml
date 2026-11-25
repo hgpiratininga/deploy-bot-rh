@@ -1,0 +1,105 @@
+# Chatwoot Community Edition - protótipo local
+# Base: docker-compose.production.yaml do repositório oficial (branch develop),
+# conforme https://developers.chatwoot.com/self-hosted/deployment/docker
+#
+# Alterações em relação ao arquivo oficial:
+# - imagem fixada na edição Community (v4.20.1-ce) em vez de "latest";
+# - "base" virou bloco de extensão (x-chatwoot-base), para não subir um container a mais;
+# - senha do Postgres lida do .env (${POSTGRES_PASSWORD}): nenhum segredo neste arquivo;
+# - Postgres e Redis sem porta publicada no host (só a rede interna do Docker os acessa);
+# - restart: unless-stopped (no protótipo, "docker compose stop" deixa tudo parado).
+#
+# Serviço n8n (Fase 2), conforme https://docs.n8n.io/hosting/installation/docker/
+# e https://docs.n8n.io/hosting/configuration/configuration-examples/isolation/ :
+# - mesma rede do Chatwoot: o Chatwoot chama http://n8n:5678/webhook/... e o n8n chama http://rails:3000/api/...;
+# - chave de criptografia das credenciais vem do .env (N8N_ENCRYPTION_KEY);
+# - telemetria, avisos de versão e templates desligados (nenhum dado vai para os servidores do n8n).
+
+name: chatwoot-proto
+
+x-chatwoot-base: &base
+  image: chatwoot/chatwoot:v4.20.1-ce
+  env_file: .env
+  volumes:
+    - storage_data:/app/storage
+
+services:
+  rails:
+    <<: *base
+    depends_on:
+      - postgres
+      - redis
+    ports:
+      - '127.0.0.1:3000:3000'
+    environment:
+      - NODE_ENV=production
+      - RAILS_ENV=production
+      - INSTALLATION_ENV=docker
+    entrypoint: docker/entrypoints/rails.sh
+    command: ['bundle', 'exec', 'rails', 's', '-p', '3000', '-b', '0.0.0.0']
+    restart: unless-stopped
+
+  sidekiq:
+    <<: *base
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      - NODE_ENV=production
+      - RAILS_ENV=production
+      - INSTALLATION_ENV=docker
+    command: ['bundle', 'exec', 'sidekiq', '-C', 'config/sidekiq.yml']
+    restart: unless-stopped
+
+  postgres:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=chatwoot
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env}
+
+  redis:
+    image: redis:alpine
+    restart: unless-stopped
+    command: ["sh", "-c", "redis-server --requirepass \"$$REDIS_PASSWORD\""]
+    env_file: .env
+    volumes:
+      - redis_data:/data
+
+  n8n:
+    image: n8nio/n8n:2.48.8
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:5678:5678'
+    environment:
+      - GENERIC_TIMEZONE=America/Sao_Paulo
+      - TZ=America/Sao_Paulo
+      - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY:?defina N8N_ENCRYPTION_KEY no .env}
+      - N8N_HOST=localhost
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      # Isolamento: não enviar dados aos servidores do n8n
+      - N8N_DIAGNOSTICS_ENABLED=false
+      - N8N_VERSION_NOTIFICATIONS_ENABLED=false
+      - N8N_TEMPLATES_ENABLED=false
+      - EXTERNAL_FRONTEND_HOOKS_URLS=
+      - N8N_DIAGNOSTICS_CONFIG_FRONTEND=
+      - N8N_DIAGNOSTICS_CONFIG_BACKEND=
+    volumes:
+      - n8n_data:/home/node/.n8n
+    networks:
+      default:
+        aliases:
+          # O formulário de Agent Bot do Chatwoot só aceita URL com ponto no nome do host.
+          # URL do bot: http://n8n.interno:5678/webhook/chatwoot-rh-bot
+          - n8n.interno
+
+volumes:
+  storage_data:
+  postgres_data:
+  redis_data:
+  n8n_data:

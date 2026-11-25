@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Arquitetura do protótipo local</title>
+<link rel="stylesheet" href="estilo.css">
+</head>
+<body>
+
+<h1>Hoje o protótipo roda inteiro <span>no notebook</span></h1>
+
+<!-- Zonas -->
+<div class="zona" style="left:120px; top:235px; width:270px; height:749px;"><div class="rot">Internet</div></div>
+<div class="zona" style="left:425px; top:235px; width:845px; height:749px;"><div class="rot">Notebook do desenvolvedor: Windows e Docker Desktop</div></div>
+<div class="zona" style="left:680px; top:470px; width:570px; height:440px;"><div class="rot embaixo">Docker Compose (rede interna)</div></div>
+
+<!-- Setas -->
+<svg class="setas" width="1920" height="1080" viewBox="0 0 1920 1080">
+  <defs>
+    <marker id="ponta" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#000"/>
+    </marker>
+  </defs>
+  <g stroke="#000" stroke-width="3" fill="none">
+    <!-- 1: candidato escreve -->
+    <line x1="215" y1="400" x2="215" y2="518" marker-end="url(#ponta)"/>
+    <!-- 6: candidato recebe -->
+    <line x1="295" y1="520" x2="295" y2="402" marker-end="url(#ponta)"/>
+    <!-- 2: Meta -> túnel -> Chatwoot -->
+    <line x1="365" y1="640" x2="453" y2="640" marker-end="url(#ponta)"/>
+    <line x1="635" y1="640" x2="713" y2="640" marker-end="url(#ponta)"/>
+    <!-- 5: Chatwoot -> Meta (saída direta) -->
+    <line x1="715" y1="560" x2="367" y2="560" marker-end="url(#ponta)"/>
+    <!-- 3: Chatwoot -> n8n -->
+    <line x1="945" y1="560" x2="1023" y2="560" marker-end="url(#ponta)"/>
+    <!-- 4: n8n -> Chatwoot -->
+    <line x1="1025" y1="640" x2="947" y2="640" marker-end="url(#ponta)"/>
+    <!-- RH -> Chatwoot -->
+    <line x1="830" y1="410" x2="830" y2="518" marker-end="url(#ponta)"/>
+    <!-- ligações com os dados -->
+    <line x1="830" y1="680" x2="830" y2="740"/>
+    <line x1="1127" y1="680" x2="1127" y2="740"/>
+  </g>
+</svg>
+
+<!-- Componentes -->
+<div class="caixa preto" style="left:145px; top:300px; width:220px; height:100px;"><b>Candidato</b><span>WhatsApp</span></div>
+<div class="caixa preto" style="left:145px; top:520px; width:220px; height:160px;"><b>Meta</b><span>WhatsApp</span><span>Cloud API</span></div>
+
+<div class="caixa vermelho" style="left:455px; top:595px; width:180px; height:90px;"><b>ngrok</b><span>túnel gratuito</span></div>
+
+<div class="caixa pessoa" style="left:715px; top:300px; width:230px; height:110px;"><b>Equipe de RH</b><span>pelo navegador</span></div>
+
+<div class="caixa verde" style="left:715px; top:520px; width:230px; height:160px;"><b>Chatwoot</b><span>atendimento</span><span>porta 3000</span></div>
+<div class="caixa verde" style="left:1025px; top:520px; width:205px; height:160px;"><b>n8n</b><span>robô do menu</span><span>porta 5678</span></div>
+
+<div class="caixa vazado" style="left:715px; top:740px; width:230px; height:95px;"><b>PostgreSQL</b><span>e Redis (filas)</span></div>
+<div class="caixa vazado" style="left:1025px; top:740px; width:205px; height:95px;"><b>Memória</b><span>do robô</span></div>
+
+<!-- Números do fluxo -->
+<div class="num" style="left:196px; top:441px;">1</div>
+<div class="num" style="left:391px; top:621px;">2</div>
+<div class="num" style="left:966px; top:541px;">3</div>
+<div class="num" style="left:966px; top:621px;">4</div>
+<div class="num" style="left:541px; top:541px;">5</div>
+<div class="num" style="left:276px; top:441px;">6</div>
+
+<!-- Coluna de leitura -->
+<div class="coluna">
+  <div class="bloco">
+    <h2>Caminho de uma mensagem</h2>
+    <div class="passo"><div class="num">1</div><div>O candidato escreve no WhatsApp</div></div>
+    <div class="passo"><div class="num">2</div><div>A Meta avisa o Chatwoot pelo túnel</div></div>
+    <div class="passo"><div class="num">3</div><div>O Chatwoot repassa ao robô</div></div>
+    <div class="passo"><div class="num">4</div><div>O robô responde ou chama o RH</div></div>
+    <div class="passo"><div class="num">5</div><div>O Chatwoot envia pela Meta</div></div>
+    <div class="passo"><div class="num">6</div><div>O candidato recebe a resposta</div></div>
+  </div>
+  <div class="bloco">
+    <h2 class="alerta">Limites de hoje</h2>
+    <div class="item">Só funciona com o notebook ligado e o túnel aberto</div>
+    <div class="item">Número de teste da Meta: no máximo 5 respostas a cada 24 horas</div>
+    <div class="item">Senhas num arquivo local e nenhum backup</div>
+  </div>
+</div>
+
+</body>
+</html>

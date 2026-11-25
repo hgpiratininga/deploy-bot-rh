@@ -1,0 +1,16 @@
+# Segredos: nunca versionar arquivos .env (só os modelos .env.example)
+.env
+**/.env
+!**/.env.example
+
+# Arquivos de sistema e de sincronização
+Thumbs.db
+desktop.ini
+.DS_Store
+*.tmp
+
+# Dependências locais
+node_modules/
+
+# Documentação interna do TI: não publicar
+docs/TI-prototipo-local-vs-empresa.md

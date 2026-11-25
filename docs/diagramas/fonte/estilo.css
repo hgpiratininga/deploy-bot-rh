@@ -1,0 +1,131 @@
+/* Estilo comum dos diagramas (padrão visual Nova Piratininga: verde, verde escuro, vermelho, branco e preto). */
+@import url('https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&display=swap');
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  width: 1920px;
+  height: 1080px;
+  background: #FFFFFF;
+  color: #000000;
+  font-family: 'Archivo', 'Arial Narrow', Arial, sans-serif;
+  position: relative;
+  overflow: hidden;
+}
+
+h1 {
+  position: absolute;
+  left: 120px;
+  top: 112px;
+  max-width: 1300px;
+  font-size: 68px;
+  line-height: 1.04;
+  font-weight: 700;
+  font-stretch: 86%;
+}
+h1 span { color: #be1622; }
+
+/* Zonas (onde cada coisa roda) */
+.zona {
+  position: absolute;
+  border: 2px solid rgba(0, 0, 0, 0.3);
+}
+.zona .rot {
+  position: absolute;
+  left: 20px;
+  top: 12px;
+  font-size: 26px;
+  font-weight: 700;
+  font-stretch: 90%;
+  color: rgba(0, 0, 0, 0.7);
+  white-space: nowrap;
+}
+.zona .rot.embaixo { top: auto; bottom: 12px; }
+
+/* Caixas (componentes) */
+.caixa {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: 8px 12px;
+  overflow: hidden;
+}
+.caixa b {
+  font-size: 32px;
+  font-weight: 800;
+  font-stretch: 86%;
+  line-height: 1.05;
+}
+.caixa span {
+  font-size: 24px;
+  font-weight: 400;
+  line-height: 1.2;
+}
+.verde    { background: #007c2f; color: #FFFFFF; }
+.preto    { background: #000000; color: #FFFFFF; }
+.vermelho { background: #be1622; color: #FFFFFF; }
+.vazado   { background: #FFFFFF; color: #007c2f; border: 3px solid #007c2f; }
+.pessoa   { background: #FFFFFF; color: #000000; border: 3px solid #000000; }
+.verde span, .preto span, .vermelho span { color: rgba(255, 255, 255, 0.85); }
+.pessoa span { color: rgba(0, 0, 0, 0.7); }
+
+/* Marcadores numerados do fluxo */
+.num {
+  position: absolute;
+  width: 38px;
+  height: 38px;
+  background: #007c2f;
+  color: #FFFFFF;
+  font-size: 24px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Coluna de leitura */
+.coluna {
+  position: absolute;
+  left: 1320px;
+  top: 235px;
+  width: 480px;
+}
+.coluna h2 {
+  font-size: 34px;
+  line-height: 1.1;
+  font-weight: 800;
+  font-stretch: 86%;
+  margin-bottom: 20px;
+}
+.coluna h2.alerta { color: #be1622; }
+.passo {
+  display: grid;
+  grid-template-columns: 38px 1fr;
+  column-gap: 16px;
+  align-items: center;
+  margin-bottom: 14px;
+  font-size: 26px;
+  line-height: 1.25;
+}
+.passo .num { position: static; }
+.item {
+  font-size: 26px;
+  line-height: 1.25;
+  margin-bottom: 16px;
+}
+.item b { font-weight: 700; }
+.item small {
+  display: block;
+  font-size: 24px;
+  color: rgba(0, 0, 0, 0.7);
+}
+.bloco { margin-bottom: 40px; }
+
+svg.setas {
+  position: absolute;
+  left: 0;
+  top: 0;
+}
