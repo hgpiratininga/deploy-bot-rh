@@ -20,9 +20,11 @@ Detalhes que não aparecem na imagem:
 ![Arquitetura proposta na empresa](diagramas/arquitetura-empresa.png)
 
 Detalhes que não aparecem na imagem:
-- O Nginx repassa HTTPS e WebSocket (`/cable`) para o Chatwoot em `127.0.0.1:3000`.
+- O proxy da empresa entra na rede Docker `bot-rh-proxy` e repassa HTTPS e WebSocket (`/cable`) para `http://bot-rh-chatwoot:3000`. A rede `bot-rh-interna` liga rails e sidekiq.
+- O Redis roda no compose do projeto, só na rede `bot-rh-interna`. PostgreSQL e n8n são serviços da empresa (ver `deploy/README.md`).
+- Quem chama a Meta e o n8n é o `sidekiq`. Quem recebe a Meta, o n8n e o RH é o `rails`, pelo proxy.
 - As notificações do app de celular passam pelo servidor de repasse da Chatwoot (`hub.2.chatwoot.com`).
-- O backup cobre o banco, os volumes (`storage_data`, `n8n_data`) e os segredos.
+- O backup do projeto cobre os volumes de anexos (`storage_data`) e do Redis (`redis_data`) e os segredos. O banco fica na rotina do DBA da empresa.
 
 As fontes das imagens ficam em `diagramas/fonte/` (HTML) e podem ser editadas.
 

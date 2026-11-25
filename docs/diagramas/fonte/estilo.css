@@ -41,6 +41,7 @@ h1 span { color: #be1622; }
   white-space: nowrap;
 }
 .zona .rot.embaixo { top: auto; bottom: 12px; }
+.zona .rot.direita { left: auto; right: 20px; }
 
 /* Caixas (componentes) */
 .caixa {

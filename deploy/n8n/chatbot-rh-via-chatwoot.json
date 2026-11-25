@@ -1,0 +1,250 @@
+{
+  "name": "Chatbot RH via Chatwoot",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "chatwoot-rh-bot",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "d1299d42-3919-44d2-ac6f-35349714d611",
+      "name": "Evento do Chatwoot (Agent Bot)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        304
+      ],
+      "webhookId": "22d1a6da-3019-44e9-be72-74c0dd0a3e6a"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Converte o evento do Agent Bot do Chatwoot em um item simples.\n// Só segue adiante: evento \"message_created\" de mensagem RECEBIDA do cliente (incoming),\n// que não seja nota privada, em conversa com status \"pending\" (ainda com o bot).\n// Mensagens enviadas pelo próprio bot chegam como \"outgoing\" e são descartadas aqui (evita loop).\n// Conversas \"open\" (já com o RH) também são descartadas: o bot não interfere.\n\n// ---------- CONFIGURAÇÃO ----------\n// Números liberados para conversar com o robô (só dígitos, com 55 e DDD).\n// Lista vazia = todos os números (produção). Preencha só para testes.\n// Ex.: ['5562999990000', '556299990000'] (com e sem o 9, o WhatsApp pode mandar qualquer um)\nconst NUMEROS_LIBERADOS = [];\n\nconst saida = [];\n\nfor (const item of $input.all()) {\n  const b = item.json.body || item.json;\n\n  if (b.event !== 'message_created') continue;\n  if (!(b.message_type === 'incoming' || b.message_type === 0)) continue;\n  if (b.private) continue;\n\n  const conversa = b.conversation || {};\n  if (conversa.status !== 'pending') continue;\n\n  const remetente = b.sender || conversa.meta?.sender || {};\n  const anexos = Array.isArray(b.attachments) ? b.attachments : [];\n  const arquivo = anexos.find(a => a.file_type === 'file') || null;\n  const nomeArquivo = arquivo\n    ? decodeURIComponent((arquivo.data_url || '').split('?')[0].split('/').pop() || 'curriculo')\n    : '';\n\n  const telefone = (remetente.phone_number || '').replace(/\\D/g, '');\n\n  saida.push({\n    json: {\n      mensagemId: b.id,\n      conversaId: conversa.id,\n      contaId: b.account?.id,\n      telefone,\n      liberado: NUMEROS_LIBERADOS.length === 0 || NUMEROS_LIBERADOS.includes(telefone),\n      nome: remetente.name || '',\n      texto: (b.content || '').trim(),\n      tipo: arquivo ? 'document' : (anexos.length ? 'midia' : 'text'),\n      documento: arquivo ? { arquivo: nomeArquivo, url: arquivo.data_url, extensao: arquivo.extension || '' } : null,\n    },\n  });\n}\n\nreturn saida;\n"
+      },
+      "id": "f95f239c-3bad-4b90-9dec-aa9634a9710a",
+      "name": "Ler evento do Chatwoot",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 4
+          },
+          "conditions": [
+            {
+              "id": "06f54e71-0296-4a16-921c-a0d478d490f4",
+              "leftValue": "={{ $json.liberado }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "76383b22-17d4-4a1f-b605-2458145f5c68",
+      "name": "Número liberado?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        480,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// =====================================================================\n// MOTOR DO FLUXO (versão Chatwoot): perguntas e respostas fixas, sem IA.\n// Para mudar textos, vagas e horários, edite só o bloco CONFIGURAÇÃO.\n// Menu em texto: o candidato responde digitando o número da opção.\n// Sessão: uma por conversa do Chatwoot.\n// =====================================================================\n\n// ---------- CONFIGURAÇÃO ----------\nconst EMPRESA = 'Fazenda Nova Piratininga';\nconst TEMPO_SESSAO_MIN = 30;            // sem resposta por 30 min, a conversa recomeça\nconst HORARIO_RH = 'de segunda a sexta, das 8h às 17h';   // [ajustar]\nconst PRAZO_RETORNO = '2 dias úteis';                      // [ajustar]\nconst CHATWOOT_URL = 'https://atendimento.EMPRESA.com.br'; // endereço do Chatwoot visto pelo n8n da empresa [ajustar]\n\n// Vagas de exemplo [ajustar]\nconst VAGAS = [\n  { titulo: 'Trabalhador rural', descricao: 'Plantio, trato e colheita' },\n  { titulo: 'Tratorista', descricao: 'CNH categoria C ou superior' },\n  { titulo: 'Operador de máquinas', descricao: 'Experiência mínima de 1 ano' },\n  { titulo: 'Auxiliar administrativo', descricao: 'Ensino médio completo' },\n];\nconst TURNOS = ['Manhã', 'Tarde', 'Noite', 'Qualquer turno'];\n\nconst MSG_FINAL = `Obrigado pelo contato com o Recrutamento e Seleção da ${EMPRESA}! 😊\\nQuando quiser falar de novo, é só mandar uma mensagem.`;\n\nconst MSG_HANDOFF =\n  `Certo! Sua conversa foi encaminhada para a equipe de RH, que atende ${HORARIO_RH}.\\n\\n` +\n  'Pode escrever sua mensagem aqui. Uma pessoa do RH vai responder por esta conversa.';\n\n// ---------- TELAS DO FLUXO (texto simples) ----------\nconst numerada = (itens) => itens.map((t, i) => `${i + 1}. ${t}`).join('\\n');\n\nconst menu = (intro) =>\n  `${intro ? intro + '\\n\\n' : ''}Como podemos ajudar? Digite o número da opção:\\n` +\n  numerada(['Ver vagas abertas', 'Cadastrar currículo', 'Acompanhar processo', 'Falar com o RH']);\n\nconst telaVagas = () =>\n  `Vagas abertas no momento:\\n\\n${VAGAS.map(v => `• *${v.titulo}*: ${v.descricao}`).join('\\n')}\\n\\n` +\n  'Digite:\\n1. Quero me candidatar\\n2. Voltar ao menu';\n\nconst perguntaVaga = () =>\n  '3/6. Para qual vaga você quer se candidatar? Digite o número:\\n' +\n  numerada([...VAGAS.map(v => v.titulo), 'Banco de talentos (nenhuma das vagas)']);\n\nconst perguntaExperiencia = () => '4/6. Você já trabalhou nessa função? Digite:\\n1. Sim\\n2. Não';\nconst perguntaTurno = () => `5/6. Qual turno você pode trabalhar? Digite o número:\\n${numerada(TURNOS)}`;\nconst perguntaCurriculo = () => '6/6. Envie seu currículo em PDF ou Word por aqui.\\nSe não tiver agora, digite *pular*.';\n\nconst fichaCadastro = (d) =>\n  `*Nome:* ${d.nome}\\n*Cidade:* ${d.cidade}\\n*Vaga:* ${d.vaga}\\n*Experiência na função:* ${d.experiencia}\\n` +\n  `*Turno:* ${d.turno}\\n*Currículo:* ${d.curriculo ? d.curriculo.arquivo : 'não enviado'}`;\n\nconst resumo = (d) => `Confira seus dados:\\n\\n${fichaCadastro(d)}\\n\\nEstá tudo certo? Digite:\\n1. Confirmar\\n2. Corrigir dados`;\n\n// ---------- AUXILIARES ----------\nconst norm = (s) => (s || '').toString().trim().toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g, '');\nconst SO_TEXTO = 'Por enquanto só consigo ler mensagens de texto. Por favor, digite sua resposta.';\nconst numero = (e, max) => (/^\\d+$/.test(e) && +e >= 1 && +e <= max ? +e : 0);\n\n// =====================================================================\nconst db = $getWorkflowStaticData('global');   // memória do fluxo (só grava com o workflow PUBLICADO)\ndb.sessoes = db.sessoes || {};\ndb.registros = db.registros || [];\nconst agora = Date.now();\nconst saida = [];\n\n// Apaga sessões paradas há mais de 7 dias, para a memória não crescer sem limite\nfor (const [k, v] of Object.entries(db.sessoes)) {\n  if (agora - (v.atualizadoEm || 0) > 7 * 24 * 3600 * 1000) delete db.sessoes[k];\n}\n\nfor (const item of $input.all()) {\n  const m = item.json;\n  const chave = String(m.conversaId);\n  const r = [];        // mensagens ao candidato, em ordem\n  const notas = [];    // notas privadas para o RH (aparecem só dentro do Chatwoot)\n  let handoff = false; // true = passar a conversa para o RH (status \"open\")\n  let s = db.sessoes[chave];\n\n  // Ignora evento repetido\n  if (s && s.ultimaMsgId === m.mensagemId) continue;\n\n  const e = norm(m.texto);\n  const ehTexto = m.tipo === 'text' && e !== '';\n  const primeiroNome = (m.nome || '').split(' ')[0];\n\n  const novaSessao = () => ({ etapa: 'menu', dados: {}, inicio: agora });\n  const iniciarCadastro = () => {\n    s.dados = {};\n    r.push('Vamos fazer seu cadastro. São 6 perguntas rápidas.\\nA qualquer momento, digite *menu* para voltar ao início ou *sair* para encerrar.');\n    r.push('1/6. Qual é o seu nome completo?');\n    s.etapa = 'cad_nome';\n  };\n\n  // Sessão nova se: não existe, ficou parada, terminou, ou já tinha ido para o RH\n  const expirou = !s || (agora - s.atualizadoEm) > TEMPO_SESSAO_MIN * 60000 || ['fim', 'humano'].includes(s.etapa);\n\n  if (expirou) {\n    s = novaSessao();\n    const saudacao = primeiroNome ? `Olá, ${primeiroNome}! 👋` : 'Olá! 👋';\n    r.push(menu(`${saudacao}\\nVocê está no atendimento de Recrutamento e Seleção da ${EMPRESA}.`));\n  } else if (['menu', 'inicio', 'voltar', 'reiniciar'].includes(e)) {\n    s = novaSessao();\n    r.push(menu('Voltamos ao início.'));\n  } else if (e === 'sair') {\n    s.etapa = 'fim';\n    r.push(`Atendimento encerrado.\\n\\n${MSG_FINAL}`);\n  } else {\n    const d = s.dados;\n    switch (s.etapa) {\n\n      case 'menu': {\n        if (e === '1') {\n          r.push(telaVagas());\n          s.etapa = 'vagas';\n        } else if (e === '2') {\n          iniciarCadastro();\n        } else if (e === '3') {\n          r.push('Para consultar seu processo, digite em uma mensagem seu *nome completo* e a *vaga* para a qual você se candidatou.');\n          s.etapa = 'acomp_info';\n        } else if (e === '4' || ['rh', 'atendente', 'humano'].includes(e)) {\n          r.push(MSG_HANDOFF);\n          s.etapa = 'humano';\n          handoff = true;\n        } else {\n          r.push(menu('Não entendi sua resposta.'));\n        }\n        break;\n      }\n\n      case 'vagas': {\n        if (e === '1' || e.includes('candidat')) iniciarCadastro();\n        else if (e === '2') { s = novaSessao(); r.push(menu()); }\n        else r.push(telaVagas());\n        break;\n      }\n\n      case 'cad_nome': {\n        const nome = (m.texto || '').trim().replace(/\\s+/g, ' ');\n        if (!ehTexto) r.push(SO_TEXTO);\n        else if (nome.split(' ').length < 2 || nome.length < 5) r.push('Por favor, digite seu *nome e sobrenome*.');\n        else {\n          d.nome = nome;\n          r.push('2/6. Em qual cidade você mora?');\n          s.etapa = 'cad_cidade';\n        }\n        break;\n      }\n\n      case 'cad_cidade': {\n        const cidade = (m.texto || '').trim();\n        if (!ehTexto) r.push(SO_TEXTO);\n        else if (cidade.length < 2) r.push('Por favor, digite o nome da sua cidade.');\n        else {\n          d.cidade = cidade;\n          r.push(perguntaVaga());\n          s.etapa = 'cad_vaga';\n        }\n        break;\n      }\n\n      case 'cad_vaga': {\n        const n = numero(e, VAGAS.length + 1);\n        if (n) {\n          d.vaga = n <= VAGAS.length ? VAGAS[n - 1].titulo : 'Banco de talentos';\n          r.push(perguntaExperiencia());\n          s.etapa = 'cad_experiencia';\n        } else {\n          r.push(perguntaVaga());\n        }\n        break;\n      }\n\n      case 'cad_experiencia': {\n        if (['1', 'sim', 's'].includes(e)) d.experiencia = 'Sim';\n        else if (['2', 'nao', 'n'].includes(e)) d.experiencia = 'Não';\n        if (d.experiencia) {\n          r.push(perguntaTurno());\n          s.etapa = 'cad_turno';\n        } else {\n          r.push(perguntaExperiencia());\n        }\n        break;\n      }\n\n      case 'cad_turno': {\n        const n = numero(e, TURNOS.length) || (TURNOS.findIndex(t => norm(t) === e) + 1);\n        if (n) {\n          d.turno = TURNOS[n - 1];\n          r.push(perguntaCurriculo());\n          s.etapa = 'cad_curriculo';\n        } else {\n          r.push(perguntaTurno());\n        }\n        break;\n      }\n\n      case 'cad_curriculo': {\n        if (m.tipo === 'document' && m.documento) {\n          d.curriculo = m.documento;\n        } else if (e === 'pular') {\n          d.curriculo = null;\n        } else {\n          r.push('Não recebi um arquivo. Envie o currículo em PDF ou Word, ou digite *pular*.');\n          break;\n        }\n        r.push(resumo(d));\n        s.etapa = 'cad_confirmar';\n        break;\n      }\n\n      case 'cad_confirmar': {\n        if (e === '1' || e === 'confirmar') {\n          db.registros.push({ conversa: chave, telefone: m.telefone, ...d, concluidoEm: new Date(agora).toISOString() });\n          if (db.registros.length > 500) db.registros.shift();\n          notas.push(`📋 Cadastro recebido pelo bot\\n\\n${fichaCadastro(d)}${d.curriculo ? `\\nArquivo: ${d.curriculo.url}` : ''}`);\n          r.push(`Cadastro enviado, ${d.nome.split(' ')[0]}! ✅\\nSe o seu perfil combinar com a vaga, o RH vai entrar em contato por este WhatsApp.\\n\\n${MSG_FINAL}`);\n          s.etapa = 'fim';\n        } else if (e === '2' || e === 'corrigir') {\n          s.dados = {};\n          r.push('Sem problemas, vamos refazer o cadastro.');\n          r.push('1/6. Qual é o seu nome completo?');\n          s.etapa = 'cad_nome';\n        } else {\n          r.push(resumo(d));\n        }\n        break;\n      }\n\n      case 'acomp_info': {\n        if (!ehTexto) { r.push(SO_TEXTO); break; }\n        db.registros.push({ conversa: chave, telefone: m.telefone, tipo: 'acompanhamento', mensagem: m.texto, concluidoEm: new Date(agora).toISOString() });\n        if (db.registros.length > 500) db.registros.shift();\n        notas.push(`🔎 Pedido de acompanhamento de processo\\n\\n${m.texto}`);\n        r.push(`Recebemos sua mensagem e encaminhamos sua conversa para a equipe de RH, que atende ${HORARIO_RH}.\\nA resposta vem por aqui em até ${PRAZO_RETORNO}.`);\n        s.etapa = 'humano';   // passa para o RH, como na opção 4\n        handoff = true;\n        break;\n      }\n\n      default: {\n        s = novaSessao();\n        r.push(menu());\n      }\n    }\n  }\n\n  s.ultimaMsgId = m.mensagemId;\n  s.atualizadoEm = agora;\n  db.sessoes[chave] = s;\n\n  const base = { chatwootUrl: CHATWOOT_URL, contaId: m.contaId, conversaId: m.conversaId, etapa: s.etapa, handoff };\n  for (const content of r) saida.push({ json: { ...base, content, privado: false } });\n  for (const content of notas) saida.push({ json: { ...base, content, privado: true } });\n}\n\nreturn saida;\n"
+      },
+      "id": "c2165f4f-833e-454b-8d5b-ab6efa36ba66",
+      "name": "Motor do fluxo",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.chatwootUrl }}/api/v1/accounts/{{ $json.contaId }}/conversations/{{ $json.conversaId }}/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ content: $json.content, message_type: 'outgoing', private: $json.privado }) }}",
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 400
+            }
+          }
+        }
+      },
+      "id": "f5bcdc41-a0ee-418b-ae3a-855943ff0a2f",
+      "name": "Enviar mensagem no Chatwoot",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        960,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Roda DEPOIS de enviar as mensagens: separa as conversas que pediram o RH (opção 4),\n// para que o aviso chegue ao candidato antes de a conversa mudar para \"open\".\nconst vistos = new Set();\nconst saida = [];\n\nfor (const it of $('Motor do fluxo').all()) {\n  const j = it.json;\n  if (!j.handoff || vistos.has(j.conversaId)) continue;\n  vistos.add(j.conversaId);\n  saida.push({ json: { chatwootUrl: j.chatwootUrl, contaId: j.contaId, conversaId: j.conversaId } });\n}\n\nreturn saida;\n"
+      },
+      "id": "a05bcf32-9070-4850-9c7b-365faeb087cb",
+      "name": "Separar pedidos de RH",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.chatwootUrl }}/api/v1/accounts/{{ $json.contaId }}/conversations/{{ $json.conversaId }}/toggle_status",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ status: 'open' }) }}",
+        "options": {}
+      },
+      "id": "6b40ec7b-bd3c-4f85-b681-4d6283032a6b",
+      "name": "Passar conversa para o RH",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1440,
+        208
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "756266a7-010b-4e5c-a71e-ac6be098a5c4",
+      "name": "Ignorar outros números",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        720,
+        416
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Chatbot RH via Chatwoot\n\nO Agent Bot do Chatwoot envia cada evento para este webhook. O bot só responde a mensagens recebidas em conversas **pendentes**. A opção 4 (falar com o RH) e a opção 3 (acompanhar processo, depois de coletar nome e vaga) enviam um aviso e mudam a conversa para **aberta**: o RH assume e o bot para.\n\n**Antes de publicar**\n1. No nó **Motor do fluxo**, ajuste `CHATWOOT_URL` para o endereço do Chatwoot visto por este n8n.\n2. Credencial *Header Auth* com nome `api_access_token` e o token do Agent Bot. Selecione nos nós **Enviar mensagem no Chatwoot** e **Passar conversa para o RH**.\n3. Publique o workflow. A memória das conversas só é gravada com ele publicado.\n4. No Chatwoot, cadastre o Agent Bot com a URL de produção deste webhook (`/webhook/chatwoot-rh-bot`) e ligue-o à caixa do WhatsApp por último.\n\n**Números liberados**: lista `NUMEROS_LIBERADOS` no nó **Ler evento do Chatwoot**. Vazia = todos (produção).\n\n**Textos, vagas e horários**: bloco CONFIGURAÇÃO no nó **Motor do fluxo**.\n\nComandos do candidato: *menu* volta ao início, *sair* encerra.",
+        "height": 520,
+        "width": 660,
+        "color": 4
+      },
+      "id": "a170b27d-efe1-4356-b8ed-7039a3e52b49",
+      "name": "Instruções",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -32,
+        -280
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Evento do Chatwoot (Agent Bot)": {
+      "main": [
+        [
+          {
+            "node": "Ler evento do Chatwoot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ler evento do Chatwoot": {
+      "main": [
+        [
+          {
+            "node": "Número liberado?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Número liberado?": {
+      "main": [
+        [
+          {
+            "node": "Motor do fluxo",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ignorar outros números",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Motor do fluxo": {
+      "main": [
+        [
+          {
+            "node": "Enviar mensagem no Chatwoot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar mensagem no Chatwoot": {
+      "main": [
+        [
+          {
+            "node": "Separar pedidos de RH",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Separar pedidos de RH": {
+      "main": [
+        [
+          {
+            "node": "Passar conversa para o RH",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": []
+}

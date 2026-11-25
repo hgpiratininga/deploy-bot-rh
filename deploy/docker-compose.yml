@@ -1,0 +1,79 @@
+# Chatbot de RH: deploy na infraestrutura da empresa
+#
+# Este compose roda o Chatwoot (serviços rails e sidekiq) e o Redis.
+# PostgreSQL e n8n são serviços da empresa e ficam fora deste arquivo.
+#
+# Redes:
+# - bot-rh-interna: rede própria dos containers do projeto (rails, sidekiq e redis).
+# - bot-rh-proxy: rede compartilhada com o proxy reverso da empresa. Só o rails
+#   entra nela, com o apelido "bot-rh-chatwoot". O proxy encaminha
+#   https://<domínio do atendimento> para http://bot-rh-chatwoot:3000.
+#
+# Nenhuma porta é publicada no servidor: o acesso de fora passa pelo proxy,
+# e o Redis só é alcançável pela rede bot-rh-interna.
+# Base: docker-compose.production.yaml oficial do Chatwoot
+# (https://developers.chatwoot.com/self-hosted/deployment/docker).
+
+name: bot-rh
+
+x-chatwoot-base: &base
+  image: chatwoot/chatwoot:v4.20.1-ce
+  env_file: .env
+  restart: unless-stopped
+  depends_on:
+    - redis
+  volumes:
+    - storage_data:/app/storage   # anexos recebidos e enviados (currículos): incluir no backup
+
+services:
+  rails:
+    <<: *base
+    environment:
+      - NODE_ENV=production
+      - RAILS_ENV=production
+      - INSTALLATION_ENV=docker
+    entrypoint: docker/entrypoints/rails.sh
+    command: ['bundle', 'exec', 'rails', 's', '-p', '3000', '-b', '0.0.0.0']
+    networks:
+      interna: {}
+      proxy:
+        aliases:
+          - bot-rh-chatwoot
+    # Para testar no próprio servidor, sem o proxy, descomente:
+    # ports:
+    #   - '127.0.0.1:3000:3000'
+
+  sidekiq:
+    <<: *base
+    environment:
+      - NODE_ENV=production
+      - RAILS_ENV=production
+      - INSTALLATION_ENV=docker
+    command: ['bundle', 'exec', 'sidekiq', '-C', 'config/sidekiq.yml']
+    networks:
+      - interna
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["sh", "-c", "redis-server --requirepass \"$$REDIS_PASSWORD\""]
+    env_file: .env
+    volumes:
+      - redis_data:/data          # filas pendentes: incluir no backup
+    networks:
+      - interna
+
+networks:
+  interna:
+    name: bot-rh-interna
+  proxy:
+    # Criada por este compose com nome fixo, para o proxy da empresa se conectar:
+    #   docker network connect bot-rh-proxy <container do proxy>
+    # Se o proxy da empresa já tiver uma rede própria, troque por:
+    #   external: true
+    #   name: <nome da rede do proxy>
+    name: bot-rh-proxy
+
+volumes:
+  storage_data:
+  redis_data:
